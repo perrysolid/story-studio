@@ -6,7 +6,7 @@ import requests
 from PIL import Image, ImageDraw
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
-ELEVENLABS_API_KEY = "sk_2b7788ba2746749a23b2f455a17636a4242c2806db65a103"
+ELEVENLABS_API_KEY = 'sk_2704fddcd07b1fd477a349972b28ad8b7984ebc60a18597d'
 
 
 # ---- Streamlit must be configured first ----
