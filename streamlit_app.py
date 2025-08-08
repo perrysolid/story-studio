@@ -6,32 +6,15 @@ import requests
 from PIL import Image, ImageDraw
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
-import os, io, json, time, base64, tempfile
-from pathlib import Path
-
-import streamlit as st
-import requests
-from PIL import Image, ImageDraw
-from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
-
-# 🔑 Hardcoded API keys (not recommended for public repos)
-ELEVEN = "sk_3f509d3e907595d3fdcde5cff4a02cf2eabc6cf40391a3eb"
-
-
-STABILITY_ENGINE = "stable-diffusion-xl-1024-v1-0"
-
+# ---- Streamlit must be configured first ----
 st.set_page_config(page_title="One-Click Story Studio", page_icon="🎬", layout="centered")
 st.title("🎬 One-Click Story Studio")
 st.caption("Prompt → Emotional Story → TTS → Images → Video (Streamlit Edition)")
 
-
-ELEVEN = st.secrets.get("ELEVENLABS_API_KEY", os.getenv("ELEVENLABS_API_KEY", ""))
-STABILITY_KEY = st.secrets.get("STABILITY_API_KEY", os.getenv("STABILITY_API_KEY", ""))
+# ---- Secrets/env (NO hardcoding) ----
+ELEVEN = st.secrets.get("ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_API_KEY") or ""
+STABILITY_KEY = st.secrets.get("STABILITY_API_KEY") or os.getenv("STABILITY_API_KEY") or ""
 STABILITY_ENGINE = "stable-diffusion-xl-1024-v1-0"
-
-st.set_page_config(page_title="One-Click Story Studio", page_icon="🎬", layout="centered")
-st.title("🎬 One-Click Story Studio")
-st.caption("Prompt → Emotional Story → TTS → Images → Video (Streamlit Edition)")
 
 def build_scene_plan(user_prompt: str):
     scenes = [
@@ -56,11 +39,14 @@ def generate_image_bytes(prompt: str) -> bytes:
         r = requests.post(url, headers=headers, json=payload, timeout=60); r.raise_for_status()
         return base64.b64decode(r.json()["artifacts"][0]["base64"])
     # Placeholder if no Stability key
-    img = Image.new("RGB", (1024, 576), (180, 180, 180)); d = ImageDraw.Draw(img); d.text((20,20), "Image Placeholder", fill=(30,30,30))
+    from PIL import Image
+    img = Image.new("RGB", (1024, 576), (180, 180, 180))
+    d = ImageDraw.Draw(img); d.text((20,20), "Image Placeholder", fill=(30,30,30))
     bio = io.BytesIO(); img.save(bio, format="PNG"); return bio.getvalue()
 
 def tts_bytes(text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
-    if not ELEVEN: return b""
+    if not ELEVEN: 
+        return b""
     headers = {"xi-api-key": ELEVEN, "Accept": "audio/mpeg", "Content-Type": "application/json"}
     payload = {"text": text, "voice_settings": {"stability": 0.6, "similarity_boost": 0.8}}
     r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}", headers=headers, json=payload, timeout=60)
