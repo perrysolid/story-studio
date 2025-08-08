@@ -19,6 +19,13 @@ ELEVEN = st.secrets.get("ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_API_KEY")
 STABILITY_KEY = st.secrets.get("STABILITY_API_KEY") or os.getenv("STABILITY_API_KEY") or ""
 STABILITY_ENGINE = "stable-diffusion-xl-1024-v1-0"
 
+has_eleven = bool(st.secrets.get("ELEVENLABS_API_KEY") or os.getenv("ELEVENLABS_API_KEY"))
+has_stability = bool(st.secrets.get("STABILITY_API_KEY") or os.getenv("STABILITY_API_KEY"))
+
+st.sidebar.header("Diagnostics")
+st.sidebar.write("ElevenLabs key:", "✅ found" if has_eleven else "❌ missing")
+st.sidebar.write("Stability key:", "✅ found" if has_stability else "❌ missing (using placeholders)")
+
 def build_scene_plan(user_prompt: str):
     scenes = [
         dict(id=1, prompt=f"{user_prompt}, warm sunset kitchen, soft rim light",
@@ -47,6 +54,24 @@ def generate_image_bytes(prompt: str) -> bytes:
     d = ImageDraw.Draw(img); d.text((20,20), "Image Placeholder", fill=(30,30,30))
     bio = io.BytesIO(); img.save(bio, format="PNG"); return bio.getvalue()
 
+def generate_image_bytes(prompt: str) -> bytes:
+    if STABILITY_KEY:
+        try:
+            url = f"https://api.stability.ai/v1/generation/{STABILITY_ENGINE}/text-to-image"
+            headers = {"Authorization": f"Bearer {STABILITY_KEY}", "Content-Type": "application/json"}
+            payload = {"text_prompts": [{"text": prompt}], "width": 1024, "height": 576, "cfg_scale": 7, "samples": 1, "steps": 30}
+            r = requests.post(url, headers=headers, json=payload, timeout=60)
+            if r.status_code != 200:
+                st.warning(f"Stability API error {r.status_code}: {r.text[:200]}")
+                raise RuntimeError("stability_failed")
+            return base64.b64decode(r.json()["artifacts"][0]["base64"])
+        except Exception as e:
+            st.info("Using placeholder image for this scene.")
+    # Placeholder if no key or error
+    img = Image.new("RGB", (1024, 576), (180, 180, 180))
+    d = ImageDraw.Draw(img); d.text((20,20), "Image Placeholder", fill=(30,30,30))
+    bio = io.BytesIO(); img.save(bio, format="PNG"); return bio.getvalue()
+
 def tts_bytes(text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
     if not ELEVEN: 
         return b""
@@ -55,16 +80,35 @@ def tts_bytes(text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
     r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}", headers=headers, json=payload, timeout=60)
     r.raise_for_status(); return r.content
 
+def tts_bytes(text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
+    if not ELEVEN:
+        st.warning("No ElevenLabs key found — narration will be silent.")
+        return b""
+    headers = {"xi-api-key": ELEVEN, "Accept": "audio/mpeg", "Content-Type": "application/json"}
+    payload = {"text": text, "voice_settings": {"stability": 0.6, "similarity_boost": 0.8}}
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    r = requests.post(url, headers=headers, json=payload, timeout=60)
+    if r.status_code != 200:
+        st.error(f"ElevenLabs error {r.status_code}: {r.text[:200]}")
+        return b""
+    return r.content
+
+
 def compose_video(scenes, image_paths, audio_paths, out_path: Path):
     clips = []
     for scene, img_p, aud_p in zip(scenes, image_paths, audio_paths):
-        dur = float(scene.get("duration_sec", 5))
-        ic = ImageClip(str(img_p)).set_duration(dur)
+        # Use audio duration if present; fallback to provided duration
         if aud_p.exists() and aud_p.stat().st_size > 0:
-            ic = ic.set_audio(AudioFileClip(str(aud_p)))
+            ac = AudioFileClip(str(aud_p))
+            dur = max(2.0, ac.duration)  # avoid zero-length
+            ic = ImageClip(str(img_p)).set_duration(dur).set_audio(ac)
+        else:
+            dur = float(scene.get("duration_sec", 5))
+            ic = ImageClip(str(img_p)).set_duration(dur)
         clips.append(ic)
     video = concatenate_videoclips(clips, method="compose")
     video.write_videofile(str(out_path), fps=24, codec="libx264", audio_codec="aac", verbose=False, logger=None)
+
 
 with st.form("prompt_form"):
     user_prompt = st.text_area("Your story idea", placeholder="A letter found at golden hour, forgiveness, healing", height=120)
