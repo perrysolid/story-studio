@@ -6,6 +6,9 @@ import requests
 from PIL import Image, ImageDraw
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
+ELEVENLABS_API_KEY = "sk_2b7788ba2746749a23b2f455a17636a4242c2806db65a103"
+
+
 # ---- Streamlit must be configured first ----
 st.set_page_config(page_title="One-Click Story Studio", page_icon="🎬", layout="centered")
 st.title("🎬 One-Click Story Studio")
