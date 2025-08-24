@@ -6,8 +6,6 @@ import requests
 from PIL import Image, ImageDraw
 from moviepy.editor import ImageClip, AudioFileClip, concatenate_videoclips
 
-ELEVENLABS_API_KEY = 'sk_2704fddcd07b1fd477a349972b28ad8b7984ebc60a18597d'
-
 
 # ---- Streamlit must be configured first ----
 st.set_page_config(page_title="One-Click Story Studio", page_icon="🎬", layout="centered")
@@ -43,19 +41,6 @@ def build_scene_plan(user_prompt: str):
 
 def generate_image_bytes(prompt: str) -> bytes:
     if STABILITY_KEY:
-        url = f"https://api.stability.ai/v1/generation/{STABILITY_ENGINE}/text-to-image"
-        headers = {"Authorization": f"Bearer {STABILITY_KEY}", "Content-Type": "application/json"}
-        payload = {"text_prompts": [{"text": prompt}], "width": 1024, "height": 576, "cfg_scale": 7, "samples": 1, "steps": 30}
-        r = requests.post(url, headers=headers, json=payload, timeout=60); r.raise_for_status()
-        return base64.b64decode(r.json()["artifacts"][0]["base64"])
-    # Placeholder if no Stability key
-    from PIL import Image
-    img = Image.new("RGB", (1024, 576), (180, 180, 180))
-    d = ImageDraw.Draw(img); d.text((20,20), "Image Placeholder", fill=(30,30,30))
-    bio = io.BytesIO(); img.save(bio, format="PNG"); return bio.getvalue()
-
-def generate_image_bytes(prompt: str) -> bytes:
-    if STABILITY_KEY:
         try:
             url = f"https://api.stability.ai/v1/generation/{STABILITY_ENGINE}/text-to-image"
             headers = {"Authorization": f"Bearer {STABILITY_KEY}", "Content-Type": "application/json"}
@@ -71,14 +56,6 @@ def generate_image_bytes(prompt: str) -> bytes:
     img = Image.new("RGB", (1024, 576), (180, 180, 180))
     d = ImageDraw.Draw(img); d.text((20,20), "Image Placeholder", fill=(30,30,30))
     bio = io.BytesIO(); img.save(bio, format="PNG"); return bio.getvalue()
-
-def tts_bytes(text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
-    if not ELEVEN: 
-        return b""
-    headers = {"xi-api-key": ELEVEN, "Accept": "audio/mpeg", "Content-Type": "application/json"}
-    payload = {"text": text, "voice_settings": {"stability": 0.6, "similarity_boost": 0.8}}
-    r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}", headers=headers, json=payload, timeout=60)
-    r.raise_for_status(); return r.content
 
 def tts_bytes(text: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> bytes:
     if not ELEVEN:

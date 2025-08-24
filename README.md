@@ -37,6 +37,12 @@ FFMPEG_BIN=ffmpeg
 ```
 Never commit real keys.
 
+### 4) Command Line (optional)
+```
+python run_story.py "A letter found at golden hour"
+```
+Outputs `final.mp4` under `./output` by default.
+
 ## With Docker
 ```
 docker compose up --build
